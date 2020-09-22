@@ -79,7 +79,18 @@ class MailBox():
                     self.send_mail(ip, subject)
                     return
         self.send_mail(ip, subject)
-                    
+    
+    def del_mails(self):
+        import imaplib
+        box = imaplib.IMAP4_SSL('imap.mail.microsoftonline.com', 993)
+        box.login("user@domain.com","paswword")
+        box.select('Inbox')
+        typ, data = box.search(None, 'ALL')
+        for num in data[0].split():
+           box.store(num, '+FLAGS', '\\Deleted')
+        box.expunge()
+        box.close()
+        box.logout()
 
 if __name__ == "__main__":
     port = 465  # For SSL
