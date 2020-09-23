@@ -5,7 +5,7 @@ import smtplib, ssl
 import time
 import imaplib
 import email
-
+import os
 import sys
 import datetime
 import socket
@@ -14,14 +14,16 @@ from requests import get
 class MailBox():
     
     def __init__(self, server):
+        print("Attempting to connect...")
         self.server = server
         self.server.login(login["user"], login["password"])
+        print("SMTP connected for sending mails!")
 
         self.inbox = imaplib.IMAP4_SSL("imap.gmail.com")
         self.inbox.login(login["user"], login["password"])
 
         self.mails = []
-        print("Successful login for sending and receiving mail")
+        print("IMAP connected for receiving mails!")
 
     def send_mail(self, body,
                   subject="", from_addr=login["user"], to_addr=login["user"]):
@@ -108,7 +110,8 @@ class MailBox():
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--log":
-        log = open("cron_log", "a")
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        log = open(dir_path + "/cron_log", "a")
         sys.stdout = log
         now = datetime.datetime.now()
         print("Current date and time: ", str(now))
@@ -117,6 +120,7 @@ if __name__ == "__main__":
     # Create a secure SSL context
     context = ssl.create_default_context()
     with smtplib.SMTP_SSL("smtp.gmail.com", port, context=context) as server:
+        print("SMTP server opened")
         mail_box = MailBox(server)
         mail_box.fetch_mail()
         mail_box.send_ip()
