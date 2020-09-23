@@ -19,6 +19,7 @@ class MailBox():
         self.inbox.login(login["user"], login["password"])
 
         self.mails = []
+        print("Successful login for sending and receiving mail")
 
     def send_mail(self, body,
                   subject="", from_addr=login["user"], to_addr=login["user"]):
@@ -34,7 +35,7 @@ class MailBox():
         message.attach(part1)
         
         self.server.sendmail(login["user"], login["user"], message.as_string())
-        print("Mail sent")
+        print("Mail sent:")
         print(message)
 
     def fetch_mail(self):
@@ -66,6 +67,7 @@ class MailBox():
     def send_ip(self):
         ip = get('https://api.ipify.org').text
         subject = "IP_WELC"
+        print("Checking last emails received for current IP: ", ip)
         for msg in self.mails:
             if msg['from'] == login['user']:
                 if msg['subject'] and msg['subject'][:len(subject)] == subject:
@@ -75,9 +77,14 @@ class MailBox():
                         pay = [msg.get_payload()]
                     for p in pay:
                         if p == ip:
+                            print("Last email already have good IP")
                             return
+                    print("Last email does not have good IP")
+                    print("Sending good IP...")
                     self.send_mail(ip, subject)
                     return
+        print("No emails with IP detail")
+        print("Sending good IP...")
         self.send_mail(ip, subject)
     
     def del_mails(self):
