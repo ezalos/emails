@@ -6,6 +6,8 @@ import time
 import imaplib
 import email
 
+import sys
+import datetime
 import socket
 from requests import get
 
@@ -49,20 +51,23 @@ class MailBox():
             msg = email.message_from_string(raw_email_string)
             self.mails.append(msg)
 
+    def print_one_mail(self, msg):
+        email_subject = msg['subject']
+        email_from = msg['from']
+        if msg.is_multipart():
+            pay = [part.get_payload() for part in msg.get_payload()]
+        else:
+            pay = [msg.get_payload()]
+        print('From : ', email_from)
+        print('Subj : ', email_subject)
+        print('Body : ', pay)
+        print()
+
     def read_mail(self, refetch=False):
         if refetch or not len(self.mails):
             self.fetch_mail()
         for msg in self.mails:
-            email_subject = msg['subject']
-            email_from = msg['from']
-            if msg.is_multipart():
-                pay = [part.get_payload() for part in msg.get_payload()]
-            else:
-                pay = [msg.get_payload()]
-            print('From : ', email_from)
-            print('Subj : ', email_subject)
-            print('Body : ', pay)
-            print()
+            self.print_one_mail(msg)
 
     def send_ip(self):
         ip = get('https://api.ipify.org').text
@@ -78,8 +83,10 @@ class MailBox():
                     for p in pay:
                         if p == ip:
                             print("Last email already have good IP")
+                            self.print_one_mail(msg)
                             return
                     print("Last email does not have good IP")
+                    self.print_one_mail(msg)
                     print("Sending good IP...")
                     self.send_mail(ip, subject)
                     return
@@ -100,6 +107,12 @@ class MailBox():
         box.logout()
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--log":
+        log = open("cron_log", "a")
+        sys.stdout = log
+        now = datetime.datetime.now()
+        print("Current date and time: ", str(now))
+
     port = 465  # For SSL
     # Create a secure SSL context
     context = ssl.create_default_context()
@@ -107,7 +120,7 @@ if __name__ == "__main__":
         mail_box = MailBox(server)
         mail_box.fetch_mail()
         mail_box.send_ip()
-        mail_box.read_mail(True)
+        #mail_box.read_mail(True)
         #mail_box.send_mail(message, "Subject_TEST")
         #check_in()
         #print(ret)

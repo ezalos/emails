@@ -1,2 +1,3 @@
 config.py
 *.pyc
+cron_log
