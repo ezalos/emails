@@ -1,3 +1,4 @@
+from datetime import datetime
 import re
 from config import login, key, get_password, white_list
 from email.mime.text import MIMEText
@@ -8,7 +9,6 @@ import imaplib
 import email
 import os
 import sys
-import datetime
 import socket
 from requests import get
 from getpass import getpass, getuser
@@ -49,7 +49,7 @@ class MailBox():
 		print('Mail: ' + self.mail_addr)
 		self.do_ip = SendIP(self, self.identifier)
 		self.do_exec = FalseSSH(
-			self, self.mail_addr, get_password(key, 'MAIL_KEY')['password'])
+			self, self.mail_addr, get_password(key, 1)['password'])
 		self.do_tobe = MailTask(self)
 
 
@@ -62,7 +62,9 @@ class MailBox():
 		message = MIMEMultipart()
 
 		if reply != None:
-			subject = "ACK: " + reply['Subject']
+			now = datetime.now()
+			current_time = now.strftime("%H:%M:%S - %d/%m/%Y")
+			subject = "ACK: " + reply['Subject']+ " - " + current_time
 
 		message["Message-ID"] = email.utils.make_msgid()
 		message["Subject"] = subject
@@ -81,7 +83,6 @@ class MailBox():
 		return message["Message-ID"]
 
 	def fetch_mail(self, folder="inbox", search="ALL"):
-		from datetime import datetime
 		print("~" * 40)
 		now = datetime.now()
 		current_time = now.strftime("%H:%M:%S - %d/%m/%Y")
@@ -257,10 +258,10 @@ def move_to_trash_before_date(m, from_addr, folder='INBOX', days_before=2):
 	# print(
 	# 	"- Found a total of {1} messages in '{0}'.".format(folder, no_of_msgs))
 
-	before_date = (datetime.date.today() - datetime.timedelta(days_before)
-				   ).strftime("%d-%b-%Y")  # date string, 04-Jan-2013
+	# before_date = (datetime.date.today() - datetime.timedelta(days_before)
+	# 			   ).strftime("%d-%b-%Y")  # date string, 04-Jan-2013
 	# search pointer for msgs before before_date
-	typ, data = m.search(None, '(BEFORE {0})'.format(before_date))
+	# typ, data = m.search(None, '(BEFORE {0})'.format(before_date))
 	typ, data = m.search(None, '(FROM "{0}")'.format(from_addr))
 
 	if data != ['']:  # if not empty list means messages exist
