@@ -1,5 +1,4 @@
 from utils import get_email_identifier
-from datetime import datetime
 
 class MailTask():
 	'''
@@ -19,9 +18,7 @@ class MailTask():
 
 	def do_action(self, mail):
 		body = mail["Message-ID"]
-		now = datetime.now()
-		current_time = now.strftime("%H:%M:%S - %d/%m/%Y")
-		subj = self.task + " - " + current_time
+		subj = self.task
 		self.mb.send_mail(body, subject=subj, reply=mail)
 		# raise NotImplementedError
 
