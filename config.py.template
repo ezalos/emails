@@ -1,4 +1,27 @@
+import os
+from getpass import getpass
+
 login = {
-    "user" : "user",
-    "password" : "password"
+    "user": "user",
+    "password": ""
 }
+
+key = {
+	'password': ""
+}
+
+name = 'Origin'
+
+white_list = [login["user"],
+					'ezalos@gmail.com']
+
+def get_password(login, cst_env='MAIL_PSW'):
+	if login['password'] == '':
+		env = os.environ
+		if cst_env in env:
+			login['password'] = env[cst_env]
+		else:
+			login['password'] = getpass()
+	return login
+
+login = get_password(login)

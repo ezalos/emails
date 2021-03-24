@@ -2,20 +2,30 @@ from requests import get
 
 class SendIP():
 	'''
-		Obj: Command - Device
-		IP_WELC - ezalos-XXXX
+		Obj: Task
+		Body: *
 	'''
+
 	def __init__(self, mail_box, login):
 		self.mb = mail_box
-		self.subject = "IP_WELC"
-		self.login = login
+		self.task = "IP"
 
 	def is_for_me(self, mail):
-		msg = mail
-		if msg['from'] == self.login:
-			if msg['subject'] and msg['subject'][:len(self.subject)] == self.subject:
-				return True
+		if self.task in mail['subject']:
+			print("Task for " + self.task)
+			return True
 		return False
+
+	def do_action(self, mail):
+		ip = get('https://api.ipify.org').text
+		dest = None
+		if "wassup" in mail['Subject']:
+			dest = mail['From']
+		self.mb.send_mail(ip, subject=self.task, to_addr=dest, reply=mail)
+
+	def ask_action(self, dest, body):
+		body = "echo 'Hello World!\\n'"
+		self.mb.send_mail(body, subject=self.task, to_addr=dest)
 
 	def do_routine(self):
 		ip = get('https://api.ipify.org').text

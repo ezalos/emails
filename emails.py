@@ -41,7 +41,6 @@ class MailBox():
 		self.workers = []
 		self.tasks_done = {}
 		self.key = None
-		#TODO: Implement white_list
 		self.white_list = white_list
 		self.identifier = make_email_identifier()
 		self.login_adrr = login['user']
@@ -53,9 +52,6 @@ class MailBox():
 			self, self.mail_addr, get_password(key, 'MAIL_KEY')['password'])
 		self.do_tobe = MailTask(self)
 
-	def reply(self):
-		# https://stackoverflow.com/questions/2182196/how-do-i-reply-to-an-email-using-the-python-imaplib-and-include-the-original-mes
-		pass
 
 	def send_mail(self, body, subject="", to_addr=None, from_addr=None, reply=None):
 		if from_addr == None:
@@ -127,8 +123,8 @@ class MailBox():
 		self.print_one_mail(mail, False)
 		if self.do_tobe.is_for_me(mail):
 			self.do_tobe.do_action(mail)
-		# if self.do_ip.is_for_me(mail):
-		# 	self.do_ip.do_routine()
+		if self.do_ip.is_for_me(mail):
+			self.do_ip.do_routine()
 		if self.do_exec.is_for_me(mail):
 			self.do_exec.do_action(mail)
 		self.tasks_done[mail["Message-ID"]] = True
