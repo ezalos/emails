@@ -4,21 +4,24 @@ import subprocess
 import time
 
 def execute_mail(cmd):
-	# t = time.process_time()
+	t = time.process_time()
 	# print(self.command)
 	raw_output = subprocess.run(cmd, stdout=subprocess.PIPE,
 								stderr=subprocess.PIPE, shell=True)
-	# time = time.process_time() - t
+	t = time.process_time() - t
 	stdout = raw_output.stdout.decode('utf-8')
 	stderr = raw_output.stderr.decode('utf-8')
 
-	output = "cmd: " + str(cmd) + "\n"
+	output = ""
 	output += "-" * 33 + "\n"
-	# output += "Time: " + str(time) + "\n"
-	# output += "-" * 33 + "\n"
+	output += "cmd: " + str(cmd) + "\n"
+	output += "-" * 33 + "\n"
+	output += "Time: " + str(t) + "\n"
+	output += "-" * 33 + "\n"
 	output += "stdout: " + str(stdout) + "\n"
 	output += "-" * 33 + "\n"
 	output += "stderr: " + str(stderr) + "\n"
+	output += "-" * 33 + "\n"
 
 	return output
 
@@ -40,9 +43,17 @@ class FalseSSH(MailTask):
 		return False
 
 	def do_action(self, mail):
+		from emails import message_content
 		to_exe = self.mb.get_payload(mail)
-		print(to_exe)
-		print("EXEC: `" + to_exe[0] + "`")
+		to_exe = to_exe[0]
+		if to_exe[-2:] == "\r\n":
+			to_exe = to_exe[:-2]
+		# print("#" * 100)
+		# print("New way: ")
+		# print(message_content(mail))
+		# print("#" * 100)
+		# print(to_exe)
+		print("EXEC: `" + to_exe + "`")
 		body = execute_mail(to_exe)
 		dest = None
 		if "wassup" in mail['Subject']:

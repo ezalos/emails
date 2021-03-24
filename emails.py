@@ -72,12 +72,21 @@ class MailBox():
 		part1 = MIMEText(body, "plain")
 		message.attach(part1)
 		
-		ret = self.server.sendmail(from_addr, to_addr, message.as_string())
+		self.server.sendmail(from_addr, to_addr, message.as_string())
 
 		print(YELLOW + "** Sending mail!" + RESET)
-		self.print_one_mail(message)
+		print(YELLOW + "**" * 20 + RESET)
+		self.print_one_mail(message, verbose=1)
+		print(YELLOW + "**" * 20 + RESET)
+		return message["Message-ID"]
 
 	def fetch_mail(self, folder="inbox", search="ALL"):
+		from datetime import datetime
+		print("~" * 40)
+		now = datetime.now()
+		current_time = now.strftime("%H:%M:%S - %d/%m/%Y")
+		print(f"{YELLOW}NEW FETCH{RESET} at {GREEN}{current_time}{RESET}")
+		print("~" * 40)
 		self.inbox.select(folder)
 		type, data = self.inbox.search(None, search)
 		mails = []
@@ -90,12 +99,7 @@ class MailBox():
 		return mails
 
 	def filter(self, mail):
-		pattern = r"([A-Za-z0-9\.]+)(\+[A-Za-z0-9\.]+)?(@[A-Za-z0-9\.]+)"
-		a = re.search(pattern, mail['From'])
-		if a == None:
-			print("\tFILTER: Mail from is not an email")
-			return False
-		email = a.group(1) + a.group(3)
+		email = get_email(mail['From'])
 		if email not in self.white_list:
 			print("\tFILTER: Mail from is not in white_list")
 			return False
@@ -119,8 +123,6 @@ class MailBox():
 
 
 	def do_tasks(self, mail):
-
-		self.print_one_mail(mail, False)
 		if self.do_tobe.is_for_me(mail):
 			self.do_tobe.do_action(mail)
 		if self.do_ip.is_for_me(mail):
@@ -134,18 +136,18 @@ class MailBox():
 		self.do_tobe.ask_action(make_email_address(self.login_adrr, 'all'))
 		self.mails = self.fetch_mail()
 		self.do_cleaning()
-		init = False
-		end_index = 0
+		init_delcaration = None
 		for id in range(0, len(self.mails)):
+			self.print_one_mail(self.mails[id], id=id)
 			if self.filter(self.mails[id]):
 				if "INIT" in self.mails[id]['subject']:
 					identifier = self.get_payload(self.mails[id])[0]
 					if identifier == self.identifier:
-						init = True
-						end_index = id
+						init_delcaration = self.mails[id]["Message-ID"]
 					self.workers.append(identifier)
-		if not init:
-			self.send_mail(self.identifier, "INIT", to_addr=make_email_address(self.login_adrr , "all"))
+		if not init_delcaration:
+			init_delcaration = self.send_mail(
+				self.identifier, "INIT", to_addr=make_email_address(self.login_adrr, "all"))
 			self.workers.append(self.identifier)
 		self.workers.append('all')
 		print(RED + "Workers: "+ RESET)
@@ -156,7 +158,7 @@ class MailBox():
 				print("\t" + GREEN + w + RESET)
 			else:
 				print("\t" + YELLOW + w + RESET)
-		return end_index + 1
+		return init_delcaration
 
 	def do_cleaning(self):
 		move_to_trash_before_date(self.inbox, "noreply@google.com")
@@ -164,26 +166,26 @@ class MailBox():
 		move_to_trash_before_date(self.inbox, "gmail-noreply@google.com")
 
 	def do_routine(self):
-		last_mail = None
-		end = self.init_box()
-		last_len = len(self.mails)
-		print("Init end: ", end)
+		origin = self.init_box()
+		last_len = -1
+		last_id = origin
 		while True:
-			print("~" * 40)
-			print("NEW CYCLE")
-			print("~" * 40)
 			if last_len < len(self.mails):
 				self.do_cleaning()
-			last_len = len(self.mails)
-			print("End: ", end)
-			for id in range(0, len(self.mails)):
-				print(f"{id}: {self.mails[id]['Subject']}")
-				# if end == 0:
-				# 	break
-				if self.filter(self.mails[id]):
-					self.do_tasks(self.mails[id])
-				last_mail = id + 1
-			end = last_mail
+				last_len = len(self.mails)
+				for id in range(0, len(self.mails)):
+					self.print_one_mail(self.mails[id], id=id)
+					if self.filter(self.mails[id]):
+						self.do_tasks(self.mails[id])
+					if origin == self.mails[id]["Message-ID"]:
+						break
+					elif last_id == self.mails[id]["Message-ID"]:
+						break
+					print()
+				last_id = self.mails[0]["Message-ID"]
+			else:
+				import time
+				time.sleep(60 * 1)
 			self.mails = self.fetch_mail()
 
 	def get_payload(self, msg):
@@ -194,17 +196,25 @@ class MailBox():
 		return pay
 
 
-
-
-
-	def print_one_mail(self, msg, body=True):
-		print("\tto:      " + GREEN + str(msg['to']) + RESET)
-		print("\tfrom:    " + str(msg['from']))
-		print('\tID:      ' + str(msg["Message-ID"]))
-		print("\tSubject: " + BLUE + str(msg['subject']) + RESET)
-		if body:
-			print("\tBody:    " + GREEN + self.get_payload(msg)[0] + RESET)
-		print()
+	def print_one_mail(self, msg, verbose=0, id=-1):
+		if verbose >= 0:
+			# Obj[] X -> X
+			id_from = get_email_identifier(msg['from'])
+			if not id_from:
+				id_from = get_email(msg['From'], with_id=True)
+			id_to = get_email_identifier(msg['to'])
+			if not id_to:
+				id_to = get_email(msg['to'], with_id=True)
+			if id > -1:
+				print(f"{YELLOW}{id}{RESET}\t", end='')
+			print(f"[{BLUE}{msg['Subject']}{RESET}]")
+			print(f"\t\t{PURPLE}{id_from}{RESET} -> {YELLOW}{id_to}{RESET}")
+		if verbose >= 1:
+			body = self.get_payload(msg)
+			for i in range(len(body)):
+				print(f"{BLUE}Body part{RESET} {YELLOW}{i}{RESET}/{BLUE}{len(body)}{RESET}:")
+				print(f"{GREEN}{body[i]}{RESET}")
+		# print("")
 
 	def read_mail(self, refetch=False):
 		if refetch or not len(self.mails):
@@ -221,6 +231,25 @@ class MailBox():
 		return False
 
 
+def message_content(mime_msg):
+	body = ""
+	if mime_msg.is_multipart():
+		for part in mime_msg.walk():
+			if part.is_multipart():
+				for subpart in part.get_payload():
+					if subpart.is_multipart():
+						for subsubpart in subpart.get_payload():
+							body = body + \
+								str(subsubpart.get_payload(decode=True)) + '\n'
+					else:
+						body = body + \
+							str(subpart.get_payload(decode=True)) + '\n'
+			else:
+				body = body + str(part.get_payload(decode=True)) + '\n'
+	else:
+		body = body + str(mime_msg.get_payload(decode=True)) + '\n'
+	body = bytes(body, 'utf-8').decode('unicode-escape')
+	return body
 
 def move_to_trash_before_date(m, from_addr, folder='INBOX', days_before=2):
 	# required to perform search, m.list() for all lables, '[Gmail]/Sent Mail'

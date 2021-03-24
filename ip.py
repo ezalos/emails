@@ -8,7 +8,7 @@ class SendIP():
 
 	def __init__(self, mail_box, login):
 		self.mb = mail_box
-		self.task = "IP"
+		self.task = "IPing"
 
 	def is_for_me(self, mail):
 		if self.task in mail['subject']:
@@ -29,7 +29,7 @@ class SendIP():
 
 	def do_routine(self):
 		ip = get('https://api.ipify.org').text
-		subject = "IP_WELC"
+		subject = "IPong"
 		print("Checking last emails received for current IP: ", ip)
 		for msg in self.mb.mails:
 			if self.is_for_me(msg):
@@ -37,10 +37,8 @@ class SendIP():
 				for p in pay:
 					if p == ip:
 						print("Last email already have good IP")
-						self.mb.print_one_mail(msg)
 						return
 				print("Last email does not have good IP")
-				self.mb.print_one_mail(msg)
 				print("Sending good IP...")
 				self.mb.send_mail(ip, subject)
 				return

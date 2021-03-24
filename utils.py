@@ -21,6 +21,17 @@ def get_email_identifier(address):
 		print("ERROR: No @ in adress ", address)
 		return None
 
+def get_email(address, with_id=False):
+	pattern = r"([A-Za-z0-9\.]+)(\+[A-Za-z0-9\.]+)?(@[A-Za-z0-9\.]+)"
+	a = re.search(pattern, address)
+	if a == None:
+			return ""
+	if with_id and a.group(2):
+		email = a.group(1) + a.group(2) + a.group(3)
+	else:
+		email = a.group(1) + a.group(3)
+	return email
+
 def make_email_address(login, identifier=None):
 	my_addr = login
 	if identifier == None:
