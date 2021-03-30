@@ -3,6 +3,9 @@ from task import MailTask
 import subprocess
 import time
 
+# Exec might be non blocking, but getting output is complex:
+# Need to verify  if this solution works : 
+# https://stackoverflow.com/questions/3906232/python-get-the-print-output-in-an-exec-statement
 def execute_mail(cmd):
 	t = time.process_time()
 	# print(self.command)
