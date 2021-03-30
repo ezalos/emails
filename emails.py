@@ -126,7 +126,7 @@ class MailBox():
 		if self.do_tobe.is_for_me(mail):
 			self.do_tobe.do_action(mail)
 		if self.do_ip.is_for_me(mail):
-			self.do_ip.do_action()
+			self.do_ip.do_action(mail)
 		if self.do_exec.is_for_me(mail):
 			self.do_exec.do_action(mail)
 		self.tasks_done[mail["Message-ID"]] = True
