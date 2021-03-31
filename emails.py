@@ -134,6 +134,7 @@ class MailBox():
 		if not mail['subject']:
 			print("\tFILTER: No subject")
 			return False
+		self.keep_track(mail)
 		identifier = get_email_identifier(msg['To'])
 		if not self.identifier == identifier and not identifier == "all":
 			print("\tFILTER: Not for worker")
@@ -203,7 +204,6 @@ class MailBox():
 		last_id = origin
 		ite = 0
 		while True:
-			ite += 1
 			if last_len < len(self.mails):
 				self.do_cleaning()
 				last_len = len(self.mails)
@@ -219,9 +219,10 @@ class MailBox():
 				last_id = self.mails[0]["Message-ID"]
 			else:
 				import time
+				ite += 1
 				time.sleep(60 * 1)
-			if ite % 10 == 0:
-				self.do_tobe.ask_action(make_email_address(self.login_adrr, 'all'))
+				if ite % 10 == 0:
+					self.do_tobe.ask_action(make_email_address(self.login_adrr, 'all'))
 			self.mails = self.fetch_mail()
 
 	def get_payload(self, msg):
