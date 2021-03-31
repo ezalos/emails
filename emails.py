@@ -176,6 +176,7 @@ class MailBox():
 		move_to_trash_before_date(self.inbox, "gmail-noreply@google.com")
 
 	def do_routine(self):
+		# TODO: when not init do all the tasks -> BAD
 		origin = self.init_box()
 		last_len = -1
 		last_id = origin
