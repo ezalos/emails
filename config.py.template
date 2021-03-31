@@ -15,6 +15,8 @@ name = 'Origin'
 white_list = [login["user"],
 					'ezalos@gmail.com']
 
+env_pswd = ['MAIL_PSW', 'MAIL_KEY']
+
 def get_password(login, cst_env='MAIL_PSW'):
 	if login['password'] == '':
 		env = os.environ
