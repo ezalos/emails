@@ -2,7 +2,7 @@ import os
 from getpass import getpass
 
 login = {
-    "user": "user",
+    "user": "ezalos.dev@gmail.com",
     "password": ""
 }
 
@@ -12,14 +12,20 @@ key = {
 
 name = 'Origin'
 
+#TODO check if it can be abused
 white_list = [login["user"],
-					'ezalos@gmail.com']
+				'ezalos@gmail.com',
+				'joepbarmentlo@protonmail.com',
+				'develle.louis@gmail.com']
+			# 	'erwan@eriau.eu',
+            #  'etienne2ram@gmail.com']
 
 env_pswd = ['MAIL_PSW', 'MAIL_KEY']
 
-def get_password(login, cst_env='MAIL_PSW'):
+def get_password(login, cst_env=0):
 	if login['password'] == '':
 		env = os.environ
+		cst_env=env_pswd[cst_env]
 		if cst_env in env:
 			login['password'] = env[cst_env]
 		else:
