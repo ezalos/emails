@@ -40,7 +40,7 @@ class MailBox():
 		print("IMAP connected for receiving mails!")
 
 		self.mails = []
-		self.workers = []
+		self.workers = {}
 		self.tasks_done = {}
 		self.key = get_password(key, 1)['password']
 		self.white_list = white_list
@@ -105,6 +105,23 @@ class MailBox():
 			mails.append(msg)
 		return mails
 
+	def keep_track(self, mail):
+		identifier = get_email_identifier(mail['To'])
+		if "ACK: " in mail['subject']:
+			if identifier != 'all' and identifier in self.workers.keys():
+				pattern = r"(\d+:\d+:\d+ - \d+/\d+/\d+)"
+				a = re.search(pattern, mail['subject'])
+				if a != None:
+					msg_time = a.group(1)
+					msg_time = datetime.strptime(msg_time, "%H:%M:%S - %d/%m/%Y")
+					if 'last_update' not in self.workers[identifier]:
+						self.workers[identifier]['last_update'] = msg_time
+					else:
+						if msg_time > self.workers[identifier]['last_update']:
+							self.workers[identifier]['last_update'] = msg_time
+							print(f"Last activity from {identifier} is at {msg_time}")
+
+
 	def filter(self, mail):
 		email = get_email(mail['From'])
 		if email not in self.white_list:
@@ -154,14 +171,18 @@ class MailBox():
 					identifier = self.get_payload(self.mails[id])[0]
 					if identifier == self.identifier:
 						init_delcaration = self.mails[id]["Message-ID"]
-					self.workers.append(identifier)
+					# self.workers.append(identifier)
+					self.workers[identifier] = {}
 		if not init_delcaration:
 			init_delcaration = self.send_mail(
 				self.identifier, "INIT", to_addr=make_email_address(self.login_adrr, "all"))
-			self.workers.append(self.identifier)
-		self.workers.append('all')
+			self.workers[self.identifier] = {}
+			# self.workers.append(self.identifier)
+			self.mails = self.fetch_mail()
+		self.workers['all'] = {}
+		# self.workers.append('all')
 		print(RED + "Workers: "+ RESET)
-		for w in self.workers:
+		for w in self.workers.keys():
 			if w == 'all':
 				print("\t" + BLUE + w + RESET)
 			elif w == self.identifier:
@@ -180,7 +201,9 @@ class MailBox():
 		origin = self.init_box()
 		last_len = -1
 		last_id = origin
+		ite = 0
 		while True:
+			ite += 1
 			if last_len < len(self.mails):
 				self.do_cleaning()
 				last_len = len(self.mails)
@@ -197,6 +220,8 @@ class MailBox():
 			else:
 				import time
 				time.sleep(60 * 1)
+			if ite % 10 == 0:
+				self.do_tobe.ask_action(make_email_address(self.login_adrr, 'all'))
 			self.mails = self.fetch_mail()
 
 	def get_payload(self, msg):
