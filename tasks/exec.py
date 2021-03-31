@@ -1,5 +1,5 @@
 from requests import get
-from task import MailTask
+from tasks.task import MailTask
 import subprocess
 import time
 

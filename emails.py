@@ -42,16 +42,17 @@ class MailBox():
 		self.mails = []
 		self.workers = []
 		self.tasks_done = {}
-		self.key = None
+		self.key = get_password(key, 1)['password']
 		self.white_list = white_list
 		self.identifier = make_email_identifier()
 		self.login_adrr = login['user']
+		self.safebox = login
 		self.mail_addr = make_email_address(login['user'], self.identifier)
 		print('Identifier: ' + self.identifier)
 		print('Mail: ' + self.mail_addr)
 		self.do_ip = SendIP(self, self.identifier)
 		self.do_exec = FalseSSH(
-			self, self.mail_addr, get_password(key, 1)['password'])
+			self, self.mail_addr, self.key)
 		self.do_tobe = MailTask(self)
 		self.do_update = SelfUpdate(self)
 
@@ -67,10 +68,12 @@ class MailBox():
 		if reply != None:
 			now = datetime.now()
 			current_time = now.strftime("%H:%M:%S - %d/%m/%Y")
-			subject = "ACK: " + reply['Subject']+ " - " + current_time
+			subject = "ACK: " + reply['Subject'] + " - " + \
+				current_time + " -> " + "{[(" + reply["Message-ID"] + ")]}"
 
 		message["Message-ID"] = email.utils.make_msgid()
-		message["Subject"] = subject
+		message["Subject"] = subject 
+
 		message["From"] = from_addr
 		message["To"] = to_addr
 
@@ -120,7 +123,10 @@ class MailBox():
 			return False
 		if "ACK: " in mail['subject']:
 			print("\tFILTER: ACK")
-			self.tasks_done[self.get_payload(msg)[0]] = True
+			pattern = r"{\[\((.+)\)\]}"
+			a = re.search(pattern, mail['subject'])
+			if a != None:
+				self.tasks_done[a.group(1)] = True
 			self.tasks_done[mail["Message-ID"]] = True
 			return False
 		return True

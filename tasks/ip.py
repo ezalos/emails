@@ -1,6 +1,8 @@
 from requests import get
+from tasks.task import MailTask
 
-class SendIP():
+
+class SendIP(MailTask):
 	'''
 		Obj: Task
 		Body: *

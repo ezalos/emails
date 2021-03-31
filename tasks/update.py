@@ -1,8 +1,9 @@
 import git
 import sys
 import os
-from task import MailTask
-
+from tasks.task import MailTask
+import __main__
+from config import env_pswd, login
 
 class SelfUpdate(MailTask):
 	'''
@@ -23,7 +24,9 @@ class SelfUpdate(MailTask):
 
 	def do_action(self, mail):
 		git_dir = "."
-		to_exec = [str(a) + ' ' for a in sys.argv]
+		print(sys.argv)
+		to_exec = 'python3 main.py'
+		print(to_exec)
 
 		body = ""
 		body += 'git_dir: ' + git_dir + '\n'
@@ -31,10 +34,23 @@ class SelfUpdate(MailTask):
 		subj = self.task
 
 		g = git.cmd.Git(git_dir)
-		g.pull()
+		res = g.pull()
+		print(res)
 
+		# if res != 'Already up to date.':
 		self.mb.send_mail(body, subject=subj, reply=mail)
-		os.execl(to_exec)
+		executable = sys.executable
+		new_args = []
+		new_args.append(executable)
+		new_args.append(os.path.realpath(__main__.__file__))
+		for av in sys.argv[1:]:
+			new_args.append(av)
+		new_env = os.environ
+		new_env[env_pswd[0]] = self.mb.safebox['password']
+		new_env[env_pswd[1]] = self.mb.key
+		print(executable, new_args, new_env)
+		os.execvpe(executable, new_args, new_env)
+		print("QUITING!")
 		sys.exit()
 		# raise NotImplementedError
 
