@@ -13,10 +13,12 @@ import socket
 from requests import get
 from getpass import getpass, getuser
 
-from exec import FalseSSH
-from ip import SendIP
 from utils import *
-from task import MailTask
+
+from tasks.exec import FalseSSH
+from tasks.ip import SendIP
+from tasks.task import MailTask
+from tasks.update import SelfUpdate
 
 PURPLE = '\033[95m'
 BLUE = '\033[94m'
@@ -51,6 +53,7 @@ class MailBox():
 		self.do_exec = FalseSSH(
 			self, self.mail_addr, get_password(key, 1)['password'])
 		self.do_tobe = MailTask(self)
+		self.do_update = SelfUpdate(self)
 
 
 	def send_mail(self, body, subject="", to_addr=None, from_addr=None, reply=None):
@@ -125,10 +128,12 @@ class MailBox():
 	def do_tasks(self, mail):
 		if self.do_tobe.is_for_me(mail):
 			self.do_tobe.do_action(mail)
-		if self.do_ip.is_for_me(mail):
+		elif self.do_ip.is_for_me(mail):
 			self.do_ip.do_action(mail)
-		if self.do_exec.is_for_me(mail):
+		elif self.do_exec.is_for_me(mail):
 			self.do_exec.do_action(mail)
+		elif self.do_update.is_for_me(mail):
+			self.do_update.do_action(mail)
 		self.tasks_done[mail["Message-ID"]] = True
 
 	def init_box(self):
