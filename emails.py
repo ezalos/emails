@@ -80,12 +80,13 @@ class MailBox():
 		part1 = MIMEText(body, "plain")
 		message.attach(part1)
 		
-		self.server.sendmail(from_addr, to_addr, message.as_string())
-
 		print(YELLOW + "** Sending mail!" + RESET)
 		print(YELLOW + "**" * 20 + RESET)
 		self.print_one_mail(message, verbose=1)
 		print(YELLOW + "**" * 20 + RESET)
+
+		self.server.sendmail(from_addr, to_addr, message.as_string())
+
 		return message["Message-ID"]
 
 	def fetch_mail(self, folder="inbox", search="ALL"):
@@ -221,7 +222,7 @@ class MailBox():
 				import time
 				ite += 1
 				time.sleep(60 * 1)
-				if ite % 15 == 0:
+				if ite % 5 == 0:
 					self.do_tobe.ask_action(make_email_address(self.login_adrr, 'all'))
 			self.mails = self.fetch_mail()
 
