@@ -85,6 +85,10 @@ class MailBox():
 		self.print_one_mail(message, verbose=1)
 		print(YELLOW + "**" * 20 + RESET)
 
+		# https://stackoverflow.com/questions/49203706/is-there-a-way-to-prevent-smtp-connection-timeout-smtplib-python
+		# raise SMTPSenderRefused(code, resp, from_addr)
+		# smtplib.SMTPSenderRefused: (451, b'4.4.2 Timeout - closing connection. n9sm6613295wrx.46 - gsmtp', 'ezalos.dev+ezalos.TM1704.ezalos@gmail.com')
+
 		self.server.sendmail(from_addr, to_addr, message.as_string())
 
 		return message["Message-ID"]
