@@ -221,7 +221,7 @@ class MailBox():
 				import time
 				ite += 1
 				time.sleep(60 * 1)
-				if ite % 10 == 0:
+				if ite % 15 == 0:
 					self.do_tobe.ask_action(make_email_address(self.login_adrr, 'all'))
 			self.mails = self.fetch_mail()
 
