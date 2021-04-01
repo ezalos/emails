@@ -21,9 +21,10 @@ class SendIP(MailTask):
 	def do_action(self, mail):
 		ip = get('https://api.ipify.org').text
 		dest = None
+		self.mb.send_mail(ip, subject=self.task, to_addr=dest, reply=mail)
 		if "wassup" in mail['Subject']:
 			dest = mail['From']
-		self.mb.send_mail(ip, subject=self.task, to_addr=dest, reply=mail)
+			self.mb.send_mail(ip, subject=self.task, to_addr=dest, reply=mail)
 
 	def ask_action(self, dest, body):
 		body = "echo 'Hello World!\\n'"
