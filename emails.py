@@ -48,6 +48,7 @@ class MailBox():
 		self.login_adrr = login['user']
 		self.safebox = login
 		self.mail_addr = make_email_address(login['user'], self.identifier)
+		# self.tasks = {}
 		print('Identifier: ' + self.identifier)
 		print('Mail: ' + self.mail_addr)
 		self.do_ip = SendIP(self, self.identifier)
@@ -128,12 +129,13 @@ class MailBox():
 
 	def keep_track(self, mail):
 		identifier = get_email_identifier(mail['To'])
+		if 'INIT' in mail['subject']:
+			if identifier not in self.workers.keys():
+				self.workers[identifier] = True
 		if "ACK: " in mail['subject']:
 			if identifier != 'all' and identifier in self.workers.keys():
-				pattern = r"(\d+:\d+:\d+ - \d+/\d+/\d+)"
-				a = re.search(pattern, mail['subject'])
-				if a != None:
-					msg_time = a.group(1)
+				msg_time = get_subj_time(mail)
+				if msg_time != None:
 					msg_time = datetime.strptime(msg_time, "%H:%M:%S - %d/%m/%Y")
 					if 'last_update' not in self.workers[identifier]:
 						self.workers[identifier]['last_update'] = msg_time
@@ -141,7 +143,19 @@ class MailBox():
 						if msg_time > self.workers[identifier]['last_update']:
 							self.workers[identifier]['last_update'] = msg_time
 							print(f"Last activity from {identifier} is at {msg_time}")
-
+				# msg_id = get_subj_msg_id(mail)
+				
+	def update_tasks_done(self, mail):
+		# Dic of mails
+		# If task:
+		# 	if not exist :
+		# 		dic of all workers (now) at false
+		#	dic[id][w] = id
+		#   if deleted not in dic[id]:
+		#		del_mails -> ACKs + Task
+		#		dic[id]['deleted'] = True
+		pass
+		# self.tasks_done[msg_id] = True
 
 	def filter(self, mail):
 		email = get_email(mail['From'])
@@ -149,7 +163,7 @@ class MailBox():
 			print("\tFILTER: Mail from is not in white_list")
 			return False
 		msg = mail
-		if mail["Message-ID"] in self.tasks_done:
+		if mail["Message-ID"] in self.tasks_done.keys():
 			print("\tFILTER: Task already done")
 			return False
 		if not mail['subject']:
@@ -162,10 +176,9 @@ class MailBox():
 			return False
 		if "ACK: " in mail['subject']:
 			print("\tFILTER: ACK")
-			pattern = r"{\[\((.+)\)\]}"
-			a = re.search(pattern, mail['subject'])
-			if a != None:
-				self.tasks_done[a.group(1)] = True
+			msg_id = get_subj_msg_id(mail)
+			if msg_id != None:
+				self.tasks_done[msg_id] = True
 			self.tasks_done[mail["Message-ID"]] = True
 			return False
 		return True
@@ -242,7 +255,7 @@ class MailBox():
 				import time
 				ite += 1
 				time.sleep(60 * 1)
-				if ite % 5 == 0:
+				if ite % 30 == 0:
 					self.do_tobe.ask_action(make_email_address(self.login_adrr, 'all'))
 			self.mails = self.fetch_mail()
 

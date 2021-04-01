@@ -40,3 +40,17 @@ def make_email_address(login, identifier=None):
 	my_addr = tab[0] + "+" + identifier + '@' + tab[1]
 	print("MY ADDRESS: " + my_addr)
 	return my_addr
+
+
+def get_subj_time(mail):
+	pattern = r"(\d+:\d+:\d+ - \d+/\d+/\d+)"
+	a = re.search(pattern, mail['subject'])
+	if a != None:
+		return a.group(1)
+
+
+def get_subj_msg_id(mail):
+	pattern = r"{\[\((.+)\)\]}"
+	a = re.search(pattern, mail['subject'])
+	if a != None:
+		return a.group(1)
