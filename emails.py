@@ -56,6 +56,17 @@ class MailBox():
 		self.do_tobe = MailTask(self)
 		self.do_update = SelfUpdate(self)
 
+	def reconnect(self):
+		port = 465  # For SSL
+		context = ssl.create_default_context()
+		with smtplib.SMTP_SSL("smtp.gmail.com", port, context=context) as server:
+			print("Attempting to connect...")
+			self.server = server
+			self.server.login(login["user"], login["password"])
+			print("SMTP connected for sending mails!")
+			self.inbox = imaplib.IMAP4_SSL("imap.gmail.com")
+			self.inbox.login(login["user"], login["password"])
+			print("IMAP connected for receiving mails!")
 
 	def send_mail(self, body, subject="", to_addr=None, from_addr=None, reply=None):
 		if from_addr == None:
@@ -89,7 +100,12 @@ class MailBox():
 		# raise SMTPSenderRefused(code, resp, from_addr)
 		# smtplib.SMTPSenderRefused: (451, b'4.4.2 Timeout - closing connection. n9sm6613295wrx.46 - gsmtp', 'ezalos.dev+ezalos.TM1704.ezalos@gmail.com')
 
-		self.server.sendmail(from_addr, to_addr, message.as_string())
+		try:
+			self.server.sendmail(from_addr, to_addr, message.as_string())
+		except Exception as e:
+			print("Error: ", e, "\tRECONNECTING...")
+			self.reconnect()
+			self.server.sendmail(from_addr, to_addr, message.as_string())
 
 		return message["Message-ID"]
 
