@@ -198,7 +198,8 @@ class MailBox():
 		if attributes ^ t_delete or attributes ^ t_error:
 			self.delete(mail)
 		if attributes ^ t_init:
-			self.workers[] 
+			if not mail['mail_id'] in self.workers.keys():
+				self.workers[mail['mail_id']] = {}
 
 
 
