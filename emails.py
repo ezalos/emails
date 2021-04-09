@@ -9,6 +9,7 @@ import imaplib
 import email
 import os
 import sys
+import copy
 import socket
 from requests import get
 from getpass import getpass, getuser
@@ -31,6 +32,9 @@ UNDERLINE = '\033[4m'
 
 class MailBox():
 	def __init__(self, server, args):
+		# ------------------
+		# INIT SERVER
+		# ------------------
 		print("Attempting to connect...")
 		self.server = server
 		self.server.login(login["user"], login["password"])
@@ -39,24 +43,228 @@ class MailBox():
 		self.inbox.login(login["user"], login["password"])
 		print("IMAP connected for receiving mails!")
 
-		self.mails = []
+		# ------------------
+		# INIT DATA
+		# ------------------
+		## BIG DATA STRUCTURES:
+		self.mails = {}
+		# mails:	{	# Need to be ordered
+		#				msg_id : {
+		#							msg:		mail
+		#							raw_msg:	r_mail # For clean
+		#							workers:	{	# NEED strong init gestion
+		#											identifiant * n:	None -> ack_id
+		#											deleted:			bool
+		# 										}
+		#							index:	int # just_in_case
+		#							?from: 	identifiant
+		#							?to: 	identifiant
+		#							?subj: 	str/split in dict?
+		#							?body: 	str #order
+		# 						 }	
+		# 			}
 		self.workers = {}
-		self.tasks_done = {}
+		# Workers: {
+		# 			identifier * n:	{
+		#								last_update: time
+		#								init_mail: msg_id
+		# 							}
+		# 			}
+
+		## SECURITY:
 		self.key = get_password(key, 1)['password']
 		self.white_list = white_list
+		self.safebox = login
+
+		## SELF
 		self.identifier = make_email_identifier()
 		self.login_adrr = login['user']
-		self.safebox = login
 		self.mail_addr = make_email_address(login['user'], self.identifier)
+		print('Mail: ' + self.mail_addr)
+		print('Identifier: ' + self.identifier)
+
+		## LOGISTICS
 		self.idle_time = 5
 		# self.tasks = {}
-		print('Identifier: ' + self.identifier)
-		print('Mail: ' + self.mail_addr)
+
+		## DO
 		self.do_ip = SendIP(self, self.identifier)
 		self.do_exec = FalseSSH(
 			self, self.mail_addr, self.key)
 		self.do_tobe = MailTask(self)
 		self.do_update = SelfUpdate(self)
+
+		## TMP
+		self.tasks_done = {}
+
+		# ------------------
+		# INIT BOX
+		# ------------------
+		self.mails = self.fetch_mail()
+		self.init_box()
+		self.do_tobe.ask_action(make_email_address(self.login_adrr, 'all'))
+
+	def fetch_mail(self, folder="inbox", search="ALL"):
+		print("~" * 40)
+		print(f"{YELLOW}NEW FETCH{RESET} at {GREEN}{datetime.now().strftime(" % H: % M: % S - %d/%m/%Y")}{RESET}")
+		print("~" * 40)
+
+		self.inbox.select(folder)
+		# TODO: only fetch all 1st time, after do since laste date
+		type, data = self.inbox.search(None, search)
+		i = 0
+		mails = {}
+		for mail_obj in data[0].split()[-1::-1]:
+			# Access data
+			typ, data = self.inbox.fetch(mail_obj, '(RFC822)')
+			raw_email = data[0][1]
+			raw_email_string = raw_email.decode('utf-8')
+			msg = email.message_from_string(raw_email_string)
+
+			# Store data
+			mails[msg["Message-ID"]] = {}
+			mails[msg["Message-ID"]]['email'] = msg
+			mails[msg["Message-ID"]]['raw_email'] = mail_obj
+			mails[msg["Message-ID"]]['identifier_to'] = get_email_identifier(msg['To'])
+			mails[msg["Message-ID"]]['identifier_from'] = get_email_identifier(msg['From'])
+			mails[msg["Message-ID"]]['mail_addr_to'] = get_email(mail['To'])
+			mails[msg["Message-ID"]]['mail_addr_from'] = get_email(mail['From'])
+			mails[msg["Message-ID"]]['mail_id'] = msg["Message-ID"]
+			# Should be done during processing
+			# mails[msg["Message-ID"]]['workers'] = copy.deepcopy(self.workers)
+			mails[msg["Message-ID"]]['index'] = i
+
+			i += 1
+		return mails
+
+
+	def filter(self, mail):
+		# ret_types
+		t_delete = 		0b00000001
+		t_done = 		0b00000010
+		t_error = 		0b00000100
+		t_identifier =	0b00001000
+		t_ack = 		0b00010000
+		t_init = 		0b00100000
+
+		ret = 0
+
+		email = get_email(mail['From'])
+		if email not in self.white_list:
+			print("\tFILTER: Mail from is not in white_list")
+			return False
+		msg = mail
+		if mail["Message-ID"] in self.tasks_done.keys():
+			print("\tFILTER: Task already done")
+			return False
+		if not mail['subject']:
+			print("\tFILTER: No subject")
+			return False
+		self.keep_track(mail)
+		identifier = get_email_identifier(msg['To'])
+		if not self.identifier == identifier and not identifier == "all":
+			print("\tFILTER: Not for worker")
+			return False
+		if "ACK: " in mail['subject']:
+			print("\tFILTER: ACK")
+			msg_id = get_subj_msg_id(mail)
+			if msg_id != None:
+				self.tasks_done[msg_id] = True
+			self.tasks_done[mail["Message-ID"]] = True
+			return False
+		return True
+
+	def delete(self, mail):
+		self.inbox.store(mail, '+FLAGS', '\\Deleted')
+
+	def process_mail(self, mail, action=True):
+		t_delete = 		0b00000001
+		t_done = 		0b00000010
+		t_error = 		0b00000100
+		t_identifier =	0b00001000
+		t_ack = 		0b00010000
+		t_init = 		0b00100000
+
+		self.print_one_mail(self.mails[id], id=id)
+
+		# Workers: {
+		# 			identifier * n:	{
+		#								last_update: time
+		#								init_mail: msg_id
+		# 							}
+		# 			}
+
+		attributes = self.filter(mail)
+		if attributes ^ t_delete or attributes ^ t_error:
+			self.delete(mail)
+		if attributes ^ t_init:
+			self.workers[] 
+
+
+
+		if self.filter(self.mails[id]):
+			if "INIT" in self.mails[id]['subject']:
+				identifier = self.get_payload(self.mails[id])[0]
+				if identifier == self.identifier:
+					init_delcaration = self.mails[id]["Message-ID"]
+
+		if self.filter(self.mails[id]):
+			self.do_tasks(self.mails[id])
+		if origin == self.mails[id]["Message-ID"]:
+			break
+		elif last_id == self.mails[id]["Message-ID"]:
+			break
+		print()
+
+
+	def init_box(self):
+		# for mail_to_del in data[0].split():
+		# mails:	{	# Need to be ordered
+		#				msg_id : {
+		#							msg:		mail
+		#							raw_msg:	r_mail # For clean
+		#							workers:	{	# NEED strong init gestion
+		#											identifiant * n:	None -> ack_id
+		#											deleted:			bool
+		# 										}
+		#							index:	int # just_in_case
+		#							?from: 	identifiant
+		#							?to: 	identifiant
+		#							?subj: 	str/split in dict?
+		#							?body: 	str #order
+		# 						 }
+		# 			}
+
+		# Cleaning in 
+		self.do_cleaning()
+		init_delcaration = None
+		for id in range(0, len(self.mails)):
+			self.print_one_mail(self.mails[id], id=id)
+			if self.filter(self.mails[id]):
+				if "INIT" in self.mails[id]['subject']:
+					identifier = self.get_payload(self.mails[id])[0]
+					if identifier == self.identifier:
+						init_delcaration = self.mails[id]["Message-ID"]
+					# self.workers.append(identifier)
+					self.workers[identifier] = {}
+		if not init_delcaration:
+			init_delcaration = self.send_mail(
+				self.identifier, "INIT", to_addr=make_email_address(self.login_adrr, "all"))
+			self.workers[self.identifier] = {}
+			# self.workers.append(self.identifier)
+			self.mails = self.fetch_mail()
+		self.workers['all'] = {}
+		# self.workers.append('all')
+		print(RED + "Workers: " + RESET)
+		for w in self.workers.keys():
+			if w == 'all':
+				print("\t" + BLUE + w + RESET)
+			elif w == self.identifier:
+				print("\t" + GREEN + w + RESET)
+			else:
+				print("\t" + YELLOW + w + RESET)
+		return init_delcaration
+
 
 	def reconnect(self):
 		# ret = self.server.quit()
@@ -129,23 +337,6 @@ class MailBox():
 
 		return message["Message-ID"]
 
-	def fetch_mail(self, folder="inbox", search="ALL"):
-		print("~" * 40)
-		now = datetime.now()
-		current_time = now.strftime("%H:%M:%S - %d/%m/%Y")
-		print(f"{YELLOW}NEW FETCH{RESET} at {GREEN}{current_time}{RESET}")
-		print("~" * 40)
-		self.inbox.select(folder)
-		type, data = self.inbox.search(None, search)
-		mails = []
-		for num in data[0].split()[-1::-1]:
-			typ, data = self.inbox.fetch(num, '(RFC822)' )
-			raw_email = data[0][1]
-			raw_email_string = raw_email.decode('utf-8')
-			msg = email.message_from_string(raw_email_string)
-			mails.append(msg)
-		return mails
-
 	def keep_track(self, mail):
 		identifier = get_email_identifier(mail['To'])
 		if 'INIT' in mail['subject']:
@@ -176,32 +367,6 @@ class MailBox():
 		pass
 		# self.tasks_done[msg_id] = True
 
-	def filter(self, mail):
-		email = get_email(mail['From'])
-		if email not in self.white_list:
-			print("\tFILTER: Mail from is not in white_list")
-			return False
-		msg = mail
-		if mail["Message-ID"] in self.tasks_done.keys():
-			print("\tFILTER: Task already done")
-			return False
-		if not mail['subject']:
-			print("\tFILTER: No subject")
-			return False
-		self.keep_track(mail)
-		identifier = get_email_identifier(msg['To'])
-		if not self.identifier == identifier and not identifier == "all":
-			print("\tFILTER: Not for worker")
-			return False
-		if "ACK: " in mail['subject']:
-			print("\tFILTER: ACK")
-			msg_id = get_subj_msg_id(mail)
-			if msg_id != None:
-				self.tasks_done[msg_id] = True
-			self.tasks_done[mail["Message-ID"]] = True
-			return False
-		return True
-
 	def do_tasks(self, mail):
 		if self.do_tobe.is_for_me(mail):
 			self.do_tobe.do_action(mail)
@@ -212,38 +377,6 @@ class MailBox():
 		elif self.do_update.is_for_me(mail):
 			self.do_update.do_action(mail)
 		self.tasks_done[mail["Message-ID"]] = True
-
-	def init_box(self):
-		self.do_tobe.ask_action(make_email_address(self.login_adrr, 'all'))
-		self.mails = self.fetch_mail()
-		self.do_cleaning()
-		init_delcaration = None
-		for id in range(0, len(self.mails)):
-			self.print_one_mail(self.mails[id], id=id)
-			if self.filter(self.mails[id]):
-				if "INIT" in self.mails[id]['subject']:
-					identifier = self.get_payload(self.mails[id])[0]
-					if identifier == self.identifier:
-						init_delcaration = self.mails[id]["Message-ID"]
-					# self.workers.append(identifier)
-					self.workers[identifier] = {}
-		if not init_delcaration:
-			init_delcaration = self.send_mail(
-				self.identifier, "INIT", to_addr=make_email_address(self.login_adrr, "all"))
-			self.workers[self.identifier] = {}
-			# self.workers.append(self.identifier)
-			self.mails = self.fetch_mail()
-		self.workers['all'] = {}
-		# self.workers.append('all')
-		print(RED + "Workers: "+ RESET)
-		for w in self.workers.keys():
-			if w == 'all':
-				print("\t" + BLUE + w + RESET)
-			elif w == self.identifier:
-				print("\t" + GREEN + w + RESET)
-			else:
-				print("\t" + YELLOW + w + RESET)
-		return init_delcaration
 
 	def do_cleaning(self):
 		move_to_trash_before_date(self.inbox, "noreply@google.com")
@@ -340,6 +473,19 @@ def message_content(mime_msg):
 		body = body + str(mime_msg.get_payload(decode=True)) + '\n'
 	body = bytes(body, 'utf-8').decode('unicode-escape')
 	return body
+
+
+def delete_mail_from_uid(m, uiid, folder='INBOX'):
+	no_of_msgs = int(m.select(folder)[1][0])
+	print(f"Nb of msg: {no_of_msgs}")
+	typ, data = m.search(None, '(FROM "{0}")'.format(uiid))
+	if data != ['']:  # if not empty list means messages exist
+		for mail_to_del in data[0].split():
+			print(f"Deleting {mail_to_del}")
+			m.store(mail_to_del, '+FLAGS', '\\Deleted')
+	else:
+		print("- Nothing to remove.")
+
 
 def move_to_trash_before_date(m, from_addr, folder='INBOX', days_before=2):
 	# required to perform search, m.list() for all lables, '[Gmail]/Sent Mail'
