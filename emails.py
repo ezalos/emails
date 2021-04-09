@@ -48,6 +48,7 @@ class MailBox():
 		self.login_adrr = login['user']
 		self.safebox = login
 		self.mail_addr = make_email_address(login['user'], self.identifier)
+		self.idle_time = 5
 		# self.tasks = {}
 		print('Identifier: ' + self.identifier)
 		print('Mail: ' + self.mail_addr)
@@ -58,16 +59,28 @@ class MailBox():
 		self.do_update = SelfUpdate(self)
 
 	def reconnect(self):
+		# ret = self.server.quit()
+		# print(f"server.quit(): {ret}")
 		port = 465  # For SSL
 		context = ssl.create_default_context()
+		print(f"ssl.create_default_context(): {context}")
+
 		with smtplib.SMTP_SSL("smtp.gmail.com", port, context=context) as server:
+			print(f"smtplib.SMTP_SSL: {server}")
 			print("Attempting to connect...")
 			self.server = server
-			self.server.login(login["user"], login["password"])
+			ret = self.server.login(login["user"], login["password"])
+			print(f"server.login(): {ret}")
+
 			print("SMTP connected for sending mails!")
 			self.inbox = imaplib.IMAP4_SSL("imap.gmail.com")
-			self.inbox.login(login["user"], login["password"])
+			print(f"imaplib.IMAP4_SSL(): {self.inbox}")
+			ret = self.inbox.login(login["user"], login["password"])
 			print("IMAP connected for receiving mails!")
+			print(f"inbox.login(): {ret}")
+			# raise SMTPServerDisconnected('please run connect() first')
+			# smtplib.SMTPServerDisconnected: please run connect() first
+
 
 	def send_mail(self, body, subject="", to_addr=None, from_addr=None, reply=None):
 		if from_addr == None:
@@ -102,11 +115,17 @@ class MailBox():
 		# smtplib.SMTPSenderRefused: (451, b'4.4.2 Timeout - closing connection. n9sm6613295wrx.46 - gsmtp', 'ezalos.dev+ezalos.TM1704.ezalos@gmail.com')
 
 		try:
+			restart = True
 			self.server.sendmail(from_addr, to_addr, message.as_string())
+			restart = False
 		except Exception as e:
 			print("Error: ", e, "\tRECONNECTING...")
 			self.reconnect()
 			self.server.sendmail(from_addr, to_addr, message.as_string())
+			restart = False
+		finally:
+			if restart:
+				self.do_update.do_action(None)
 
 		return message["Message-ID"]
 
@@ -255,7 +274,7 @@ class MailBox():
 				import time
 				ite += 1
 				time.sleep(60 * 1)
-				if ite % 30 == 0:
+				if ite % self.idle_time == 0:
 					self.do_tobe.ask_action(make_email_address(self.login_adrr, 'all'))
 			self.mails = self.fetch_mail()
 

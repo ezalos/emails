@@ -38,7 +38,8 @@ class SelfUpdate(MailTask):
 		print(res)
 
 		# if res != 'Already up to date.':
-		self.mb.send_mail(body, subject=subj, reply=mail)
+		if mail != None:
+			self.mb.send_mail(body, subject=subj, reply=mail)
 		executable = sys.executable
 		new_args = []
 		new_args.append(executable)
