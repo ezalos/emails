@@ -29,6 +29,8 @@ RESET = '\033[0m'
 BOLD = '\033[1m'
 UNDERLINE = '\033[4m'
 
+# Signal ALARM: https://stackoverflow.com/questions/492519/timeout-on-a-function-call
+
 class MailBox():
 	def __init__(self, server, args):
 		print("Attempting to connect...")
@@ -138,8 +140,16 @@ class MailBox():
 		self.inbox.select(folder)
 		type, data = self.inbox.search(None, search)
 		mails = []
-		for num in data[0].split()[-1::-1]:
-			typ, data = self.inbox.fetch(num, '(RFC822)' )
+		for num in data[0].split()[::-1]:
+			try:
+				restart = True
+				typ, data = self.inbox.fetch(num, '(RFC822)' )
+				restart = False
+			except Exception as e:
+				print("Error: ", e, "\tRECONNECTING...")
+			finally:
+				if restart:
+					self.do_update.do_action(None)
 			raw_email = data[0][1]
 			raw_email_string = raw_email.decode('utf-8')
 			msg = email.message_from_string(raw_email_string)
@@ -257,7 +267,7 @@ class MailBox():
 		last_id = origin
 		ite = 0
 		while True:
-			if last_len < len(self.mails):
+			if last_len < len(self.mails) or ite % 5 == 0:
 				self.do_cleaning()
 				last_len = len(self.mails)
 				for id in range(0, len(self.mails)):
@@ -270,6 +280,7 @@ class MailBox():
 						break
 					print()
 				last_id = self.mails[0]["Message-ID"]
+				ite += 1
 			else:
 				import time
 				ite += 1

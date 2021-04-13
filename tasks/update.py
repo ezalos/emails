@@ -33,8 +33,11 @@ class SelfUpdate(MailTask):
 		body += 'to_exec: ' + to_exec + '\n'
 		subj = self.task
 
-		g = git.cmd.Git(git_dir)
-		res = g.pull()
+		try:
+			g = git.cmd.Git(git_dir)
+			res = g.pull()
+		except Exception as e:
+			res = str(e)
 		print(res)
 
 		# if res != 'Already up to date.':
