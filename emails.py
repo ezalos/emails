@@ -30,6 +30,7 @@ BOLD = '\033[1m'
 UNDERLINE = '\033[4m'
 
 # Signal ALARM: https://stackoverflow.com/questions/492519/timeout-on-a-function-call
+import signal
 
 class MailBox():
 	def __init__(self, server, args):
@@ -59,6 +60,13 @@ class MailBox():
 			self, self.mail_addr, self.key)
 		self.do_tobe = MailTask(self)
 		self.do_update = SelfUpdate(self)
+
+		# Register an handler for the timeout
+		def handler(signum, frame):
+			print("Forever is over!")
+			raise Exception("end of time")
+		# Register the signal function handler
+		signal.signal(signal.SIGALRM, handler)
 
 	def reconnect(self):
 		# ret = self.server.quit()
@@ -118,7 +126,9 @@ class MailBox():
 
 		try:
 			restart = True
+			signal.alarm(60 * 15)
 			self.server.sendmail(from_addr, to_addr, message.as_string())
+			signal.alarm(0)
 			restart = False
 		except Exception as e:
 			print("Error: ", e, "\tRECONNECTING...")
@@ -143,7 +153,9 @@ class MailBox():
 		for num in data[0].split()[::-1]:
 			try:
 				restart = True
+				signal.alarm(60 * 15)
 				typ, data = self.inbox.fetch(num, '(RFC822)' )
+				signal.alarm(0)
 				restart = False
 			except Exception as e:
 				print("Error: ", e, "\tRECONNECTING...")
